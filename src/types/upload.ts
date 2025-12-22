@@ -1,46 +1,58 @@
-import type { ChannelClassification } from "./channel";
+export type ReadyForStreamContentType = "REEL" | "EPISODE";
 
-export interface UploadCompletedEvent {
+export interface ReadyForStreamEvent {
   eventId: string;
-  eventType: "media.uploaded";
+  eventType: "media.ready-for-stream";
   version: string;
   occurredAt: string;
-  data: {
-    contentId: string;
-    tenantId: string;
-    contentType: ChannelClassification;
-    sourceGcsUri: string;
-    checksum: string;
-    durationSeconds: number;
-    ingestRegion: string;
-    drm?: {
-      keyId: string;
-      licenseServer: string;
-    };
-    tags?: string[];
-    variants?: Array<{
-      codec: string;
-      bitrateKbps: number;
-      height: number;
-      width: number;
-    }>;
-    availabilityWindow?: {
-      startsAt: string;
-      endsAt: string;
-    };
-    geoRestrictions?: {
-      allow?: string[];
-      deny?: string[];
-    };
-  };
+  data: ReadyForStreamEventData;
   acknowledgement?: {
     deadlineSeconds: number;
     required: boolean;
   };
 }
 
-export interface UploadEventEnvelope {
-  id: string;
-  publishTime: string;
-  message: UploadCompletedEvent;
+export interface ReadyForStreamEventData {
+  uploadId: string;
+  videoId: string;
+  tenantId: string;
+  contentType: ReadyForStreamContentType;
+  sourceUpload: {
+    storageUrl?: string | null;
+    objectKey: string;
+    sizeBytes: number;
+    contentType: string;
+  };
+  processedAsset: {
+    bucket: string;
+    manifestObject: string;
+    storagePrefix?: string;
+    renditions: Array<{
+      name: string;
+      codec: string;
+      bitrateKbps: number;
+      resolution: string;
+      frameRate?: number;
+    }>;
+    checksum: string;
+    signedUrlTtlSeconds: number;
+    lifecycle?: {
+      storageClass: string;
+      retentionDays?: number;
+    };
+  };
+  encryption?: {
+    keyId: string;
+    licenseServer: string;
+  };
+  ingestRegion: string;
+  cdn: {
+    defaultBaseUrl: string;
+  };
+  omeHints?: {
+    application: string;
+    protocol: string;
+  };
+  idempotencyKey: string;
+  readyAt: string;
 }

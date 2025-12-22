@@ -12,6 +12,8 @@ export interface AbrVariant {
 export interface ChannelProvisioningRequest {
   contentId: string;
   classification: ChannelClassification;
+  omeApplication: string;
+  protocol: string;
   sourceUri: string;
   ingestPool: string;
   egressPool: string;
@@ -52,6 +54,8 @@ export interface ChannelMetadata {
   contentId: string;
   channelId: string;
   classification: ChannelClassification;
+  omeApplication: string;
+  protocol: string;
   manifestPath: string;
   playbackUrl: string;
   originEndpoint: string;
@@ -60,6 +64,11 @@ export interface ChannelMetadata {
   status: ProvisioningStatus;
   retries: number;
   sourceAssetUri: string;
+  tenantId?: string;
+  readyAt?: string;
+  gcsBucket?: string;
+  storagePrefix?: string;
+  renditions?: RenditionProfile[];
   lastProvisionedAt: string;
   drm?: {
     keyId: string;
@@ -74,4 +83,12 @@ export interface ChannelMetadata {
     allow?: string[];
     deny?: string[];
   };
+}
+
+export interface RenditionProfile {
+  name: string;
+  codec: string;
+  bitrateKbps: number;
+  resolution: string;
+  frameRate?: number;
 }

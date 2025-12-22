@@ -67,6 +67,8 @@ export class OvenMediaEngineClient {
         classification: request.classification,
         ingestPool: request.ingestPool,
         egressPool: request.egressPool,
+        application: request.omeApplication,
+        protocol: request.protocol,
         source: {
           uri: request.sourceUri,
         },

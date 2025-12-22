@@ -7,6 +7,7 @@ import { ChannelProvisioner } from "./channel-provisioner";
 import { CdnControlClient } from "../clients/cdn-client";
 import { CdnTokenSigner } from "../utils/cdn-signature";
 import { AuthServiceClient } from "../clients/auth-client";
+import { ContentServiceClient } from "../clients/content-client";
 import { AlertingService } from "./alerting-service";
 import { MetricsRegistry } from "./metrics-registry";
 import type { ChannelMetadataRepository } from "../repositories/channel-metadata-repository";
@@ -23,6 +24,7 @@ export interface ServiceDependencies {
   cdnClient: CdnControlClient;
   cdnSigner: CdnTokenSigner;
   authClient: AuthServiceClient;
+  contentClient: ContentServiceClient;
   alertingService: AlertingService;
   metrics: MetricsRegistry;
   analytics: AnalyticsExporter;
@@ -67,6 +69,8 @@ export function getServiceDependencies(): ServiceDependencies {
     manifestBucket: config.GCS_MANIFEST_BUCKET,
     reelsPreset: config.OME_REELS_PRESET,
     seriesPreset: config.OME_SERIES_PRESET,
+    reelsApplication: config.OME_REELS_APPLICATION,
+    seriesApplication: config.OME_SERIES_APPLICATION,
     reelsIngestPool: config.OME_REELS_INGEST_POOL,
     seriesIngestPool: config.OME_SERIES_INGEST_POOL,
     reelsEgressPool: config.OME_REELS_EGRESS_POOL,
@@ -100,6 +104,13 @@ export function getServiceDependencies(): ServiceDependencies {
     logger,
   });
 
+  const contentClient = new ContentServiceClient({
+    baseUrl: config.CONTENT_SERVICE_BASE_URL,
+    serviceToken: config.CONTENT_SERVICE_INTERNAL_TOKEN,
+    timeoutMs: config.CONTENT_SERVICE_TIMEOUT_MS,
+    logger,
+  });
+
   const alertingService = new AlertingService({
     observabilityUrl: config.OBSERVABILITY_EXPORT_URL,
     auditTopic: config.AUDIT_LOG_TOPIC,
@@ -126,6 +137,7 @@ export function getServiceDependencies(): ServiceDependencies {
     cdnClient,
     cdnSigner,
     authClient,
+    contentClient,
     alertingService,
     metrics,
     analytics,

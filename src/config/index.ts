@@ -34,6 +34,8 @@ const envSchema = z.object({
   OME_SERIES_PRESET: z
     .string()
     .default("1080p|1920x1080|4500,720p|1280x720|2500,480p|854x480|1500"),
+  OME_REELS_APPLICATION: z.string().default("reels"),
+  OME_SERIES_APPLICATION: z.string().default("series"),
   OME_REELS_INGEST_POOL: z.string().default("ome-reels-ingest"),
   OME_SERIES_INGEST_POOL: z.string().default("ome-series-ingest"),
   OME_REELS_EGRESS_POOL: z.string().default("ome-reels-egress"),
@@ -57,6 +59,12 @@ const envSchema = z.object({
   MAX_PROVISION_RETRIES: z.coerce.number().int().positive().default(5),
   AUDIT_LOG_TOPIC: z.string().default("projects/dev/topics/streaming-audit"),
   CONTENT_SERVICE_CALLBACK_URL: z.string().url().optional(),
+  CONTENT_SERVICE_BASE_URL: z
+    .string()
+    .url()
+    .default("https://content.pocketlol"),
+  CONTENT_SERVICE_INTERNAL_TOKEN: z.string().optional(),
+  CONTENT_SERVICE_TIMEOUT_MS: z.coerce.number().int().positive().default(2_000),
   API_GATEWAY_CACHE_WARMUP_URL: z.string().url().optional(),
   OBSERVABILITY_EXPORT_URL: z.string().url().optional(),
   AUTH_SERVICE_BASE_URL: z.string().url().default("https://auth.pocketlol"),

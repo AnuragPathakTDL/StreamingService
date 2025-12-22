@@ -5,21 +5,10 @@ import type { CdnControlClient } from "../clients/cdn-client";
 import type { OvenMediaEngineClient } from "../clients/ome-client";
 import type { NotificationPublisher } from "./notification-publisher";
 import type { AlertingService } from "./alerting-service";
-import type { UploadCompletedEvent } from "../types/upload";
+import type { ReadyForStreamEvent } from "../types/upload";
 import type { ChannelMetadata } from "../types/channel";
 
-export interface RegisterStreamPayload {
-  contentId: string;
-  tenantId: string;
-  contentType: UploadCompletedEvent["data"]["contentType"];
-  sourceGcsUri: string;
-  checksum: string;
-  durationSeconds: number;
-  ingestRegion: string;
-  drm?: UploadCompletedEvent["data"]["drm"];
-  availabilityWindow?: UploadCompletedEvent["data"]["availabilityWindow"];
-  geoRestrictions?: UploadCompletedEvent["data"]["geoRestrictions"];
-}
+export type RegisterStreamPayload = ReadyForStreamEvent["data"];
 
 export class StreamAdminService {
   constructor(
@@ -32,30 +21,19 @@ export class StreamAdminService {
   ) {}
 
   async register(payload: RegisterStreamPayload) {
-    const event: UploadCompletedEvent = {
+    const event: ReadyForStreamEvent = {
       eventId: randomUUID(),
-      eventType: "media.uploaded",
+      eventType: "media.ready-for-stream",
       version: "2025-01-01",
       occurredAt: new Date().toISOString(),
-      data: {
-        contentId: payload.contentId,
-        tenantId: payload.tenantId,
-        contentType: payload.contentType,
-        sourceGcsUri: payload.sourceGcsUri,
-        checksum: payload.checksum,
-        durationSeconds: payload.durationSeconds,
-        ingestRegion: payload.ingestRegion,
-        drm: payload.drm,
-        availabilityWindow: payload.availabilityWindow,
-        geoRestrictions: payload.geoRestrictions,
-      },
+      data: payload,
       acknowledgement: {
         deadlineSeconds: 60,
         required: true,
       },
     };
 
-    const metadata = await this.provisioner.provisionFromUpload(event);
+    const metadata = await this.provisioner.provisionFromReadyEvent(event);
     await this.notifications.publishPlaybackReady({
       metadata,
       manifestUrl: metadata.playbackUrl,

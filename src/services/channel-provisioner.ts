@@ -7,7 +7,7 @@ import type {
   ChannelProvisioningResult,
   ChannelClassification,
 } from "../types/channel";
-import type { UploadCompletedEvent } from "../types/upload";
+import type { ReadyForStreamEvent } from "../types/upload";
 import type { ChannelMetadataRepository } from "../repositories/channel-metadata-repository";
 import { withExponentialBackoff } from "../utils/retry";
 import { OvenMediaEngineClient } from "../clients/ome-client";
@@ -18,6 +18,8 @@ interface ChannelProvisionerOptions {
   manifestBucket: string;
   reelsPreset: string;
   seriesPreset: string;
+  reelsApplication: string;
+  seriesApplication: string;
   reelsIngestPool: string;
   seriesIngestPool: string;
   reelsEgressPool: string;
@@ -35,6 +37,8 @@ export class ChannelProvisioner {
   private readonly manifestBucket: string;
   private readonly reelPreset: AbrVariant[];
   private readonly seriesPreset: AbrVariant[];
+  private readonly reelsApplication: string;
+  private readonly seriesApplication: string;
   private readonly reelsIngestPool: string;
   private readonly seriesIngestPool: string;
   private readonly reelsEgressPool: string;
@@ -51,6 +55,8 @@ export class ChannelProvisioner {
     this.manifestBucket = options.manifestBucket;
     this.reelPreset = this.parsePreset(options.reelsPreset);
     this.seriesPreset = this.parsePreset(options.seriesPreset);
+    this.reelsApplication = options.reelsApplication;
+    this.seriesApplication = options.seriesApplication;
     this.reelsIngestPool = options.reelsIngestPool;
     this.seriesIngestPool = options.seriesIngestPool;
     this.reelsEgressPool = options.reelsEgressPool;
@@ -62,72 +68,94 @@ export class ChannelProvisioner {
     this.logger = options.logger ?? pino({ name: "channel-provisioner" });
   }
 
-  async provisionFromUpload(
-    event: UploadCompletedEvent
+  async provisionFromReadyEvent(
+    event: ReadyForStreamEvent
   ): Promise<ChannelMetadata> {
-    const classification = event.data.contentType;
+    const classification =
+      event.data.contentType === "REEL" ? "reel" : "series";
+    const omeApplication =
+      event.data.omeHints?.application ??
+      (event.data.contentType === "REEL"
+        ? this.reelsApplication
+        : this.seriesApplication);
+    const protocol =
+      event.data.omeHints?.protocol ??
+      (event.data.contentType === "REEL" ? "ll-hls" : "hls");
     const existing = await this.repository.findByContentId(
-      event.data.contentId
+      event.data.videoId
     );
+    const incomingChecksum = event.data.processedAsset.checksum;
+
     if (
       existing &&
-      existing.checksum === event.data.checksum &&
+      existing.checksum === incomingChecksum &&
       existing.status === "ready"
     ) {
       this.logger.info(
-        { contentId: event.data.contentId },
+        { contentId: event.data.videoId },
         "Channel already provisioned with matching checksum"
       );
       return existing;
     }
 
-    const manifestPath = this.buildManifestPath(event.data.contentId);
-    const cacheKey = this.buildCacheKey(
-      event.data.contentId,
-      event.data.checksum
-    );
+    const manifestPath = event.data.processedAsset.manifestObject;
+    const cacheKey = this.buildCacheKey(event.data.videoId, incomingChecksum);
     const abrLadder = this.selectPreset(classification);
+    const sourceUri = this.buildSourceUri(event);
+    const outputBucket = event.data.processedAsset.bucket || this.manifestBucket;
 
     const request: ChannelProvisioningRequest = {
-      contentId: event.data.contentId,
+      contentId: event.data.videoId,
       classification,
-      sourceUri: event.data.sourceGcsUri,
+      omeApplication,
+      protocol,
+      sourceUri,
       ingestPool: this.selectIngestPool(classification),
       egressPool: this.selectEgressPool(classification),
       abrLadder,
-      outputBucket: this.manifestBucket,
+      outputBucket,
       manifestPath,
       cacheKey,
-      drm: event.data.drm,
+      drm: event.data.encryption,
       metadata: {
         tenantId: event.data.tenantId,
-        checksum: event.data.checksum,
+        checksum: incomingChecksum,
         ingestRegion: event.data.ingestRegion,
-        durationSeconds: event.data.durationSeconds.toString(),
+        readyAt: event.data.readyAt,
+        idempotencyKey: event.data.idempotencyKey,
         signingKeyId: this.signingKeyId,
         dryRun: this.dryRun ? "true" : "false",
       },
-      availabilityWindow: event.data.availabilityWindow,
-      geoRestrictions: event.data.geoRestrictions,
     };
 
     const baseRecord: ChannelMetadata = {
-      contentId: event.data.contentId,
+      contentId: event.data.videoId,
       channelId: existing?.channelId ?? "pending",
       classification,
+      omeApplication,
+      protocol,
       manifestPath,
-      playbackUrl: this.buildPlaybackUrl(manifestPath),
+      playbackUrl: this.buildPlaybackUrl(
+        manifestPath,
+        event.data.cdn?.defaultBaseUrl
+      ),
       originEndpoint: existing?.originEndpoint ?? "pending",
       cacheKey,
-      checksum: event.data.checksum,
+      checksum: incomingChecksum,
       status: "provisioning",
       retries: existing ? existing.retries + 1 : 0,
-      sourceAssetUri: event.data.sourceGcsUri,
+      sourceAssetUri: event.data.sourceUpload.storageUrl ?? sourceUri,
+      tenantId: event.data.tenantId,
+      readyAt: event.data.readyAt,
+      gcsBucket: outputBucket,
+      storagePrefix:
+        event.data.processedAsset.storagePrefix ??
+        (this.deriveStoragePrefix(event.data.processedAsset.manifestObject) ||
+          undefined),
+      renditions: event.data.processedAsset.renditions,
       lastProvisionedAt: new Date().toISOString(),
-      drm: event.data.drm,
+      drm: event.data.encryption,
       ingestRegion: event.data.ingestRegion,
-      availabilityWindow: event.data.availabilityWindow,
-      geoRestrictions: event.data.geoRestrictions,
     };
 
     await this.repository.upsert(baseRecord);
@@ -140,7 +168,7 @@ export class ChannelProvisioner {
           retries: this.maxProvisionRetries,
           onRetry: (err, attempt) =>
             this.logger.warn(
-              { err, attempt, contentId: event.data.contentId },
+              { err, attempt, contentId: event.data.videoId },
               "Provisioning retry"
             ),
         }
@@ -159,7 +187,12 @@ export class ChannelProvisioner {
       ...baseRecord,
       channelId: response.channelId,
       manifestPath: response.manifestPath ?? baseRecord.manifestPath,
-      playbackUrl: response.playbackBaseUrl ?? baseRecord.playbackUrl,
+      playbackUrl:
+        response.playbackBaseUrl ??
+        this.buildPlaybackUrl(
+          response.manifestPath ?? baseRecord.manifestPath,
+          event.data.cdn?.defaultBaseUrl
+        ),
       originEndpoint: response.originEndpoint,
       status: "ready",
       lastProvisionedAt: new Date().toISOString(),
@@ -212,15 +245,42 @@ export class ChannelProvisioner {
       : this.seriesEgressPool;
   }
 
-  private buildManifestPath(contentId: string) {
-    return `manifests/${contentId}/master.m3u8`;
-  }
-
-  private buildPlaybackUrl(manifestPath: string) {
-    return new URL(manifestPath, this.cdnBaseUrl).toString();
+  private buildPlaybackUrl(manifestPath: string, baseUrl?: string) {
+    const origin = baseUrl ?? this.cdnBaseUrl;
+    return new URL(manifestPath, origin).toString();
   }
 
   private buildCacheKey(contentId: string, checksum: string) {
     return createHash("sha1").update(`${contentId}:${checksum}`).digest("hex");
+  }
+
+  private buildSourceUri(event: ReadyForStreamEvent) {
+    const bucket = event.data.processedAsset.bucket;
+    if (event.data.processedAsset.storagePrefix) {
+      return this.buildGcsUri(bucket, event.data.processedAsset.storagePrefix);
+    }
+    const derived = this.deriveStoragePrefix(
+      event.data.processedAsset.manifestObject
+    );
+    if (derived) {
+      return this.buildGcsUri(bucket, derived);
+    }
+    if (event.data.sourceUpload.storageUrl) {
+      return event.data.sourceUpload.storageUrl;
+    }
+    return this.buildGcsUri(bucket, event.data.processedAsset.manifestObject);
+  }
+
+  private deriveStoragePrefix(manifestObject: string) {
+    const lastSlash = manifestObject.lastIndexOf("/");
+    if (lastSlash === -1) {
+      return "";
+    }
+    return manifestObject.slice(0, lastSlash);
+  }
+
+  private buildGcsUri(bucket: string, objectPath: string) {
+    const normalized = objectPath.replace(/^\/+/, "");
+    return `gs://${bucket}/${normalized}`;
   }
 }

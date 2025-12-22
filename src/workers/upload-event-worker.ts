@@ -10,6 +10,7 @@ const worker = new UploadEventWorker({
   provisioner: deps.channelProvisioner,
   notificationPublisher: deps.notificationPublisher,
   alertingService: deps.alertingService,
+  contentClient: deps.contentClient,
   ackDeadlineSeconds: deps.config.UPLOAD_EVENT_ACK_DEADLINE_SECONDS,
   manifestTtlSeconds: deps.config.SIGNED_URL_TTL_SECONDS,
   maxDeliveryAttempts: deps.config.MAX_PROVISION_RETRIES,
