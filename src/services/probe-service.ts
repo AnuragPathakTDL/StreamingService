@@ -81,7 +81,11 @@ export class ProbeService {
         clearTimeout(timeout);
       }
     }
-    await this.evaluateFailover(channel.manifestPath, channel.ingestRegion, results);
+    await this.evaluateFailover(
+      channel.manifestPath,
+      channel.ingestRegion,
+      results
+    );
     await this.analytics.emit("stream.probe.results", {
       contentId,
       results,

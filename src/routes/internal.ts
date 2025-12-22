@@ -41,10 +41,15 @@ export default fp(async function internalRoutes(fastify: FastifyInstance) {
     handler: async (request) => {
       const params = playbackParamsSchema.parse(request.params);
       const query = playbackQuerySchema.parse(request.query ?? {});
-      const response = buildPlaybackUrl(params.id, config.CDN_BASE_URL, config.SIGNED_URL_TTL_SECONDS, {
-        quality: query.quality,
-        device: query.device,
-      });
+      const response = buildPlaybackUrl(
+        params.id,
+        config.CDN_BASE_URL,
+        config.SIGNED_URL_TTL_SECONDS,
+        {
+          quality: query.quality,
+          device: query.device,
+        }
+      );
       request.log.debug(
         { videoId: params.id, quality: query.quality, device: query.device },
         "Generated streaming URL"

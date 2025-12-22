@@ -40,7 +40,10 @@ export class CdnControlClient {
     }
     await this.post("/purge", { path: manifestPath });
     this.logger.info({ manifestPath }, "Requested CDN purge");
-    await this.analytics?.emit("cdn.purge", { manifestPath, issuedAt: new Date().toISOString() });
+    await this.analytics?.emit("cdn.purge", {
+      manifestPath,
+      issuedAt: new Date().toISOString(),
+    });
   }
 
   async warmup(manifestUrl: string): Promise<void> {
@@ -48,10 +51,16 @@ export class CdnControlClient {
       return;
     }
     await this.post("/warmup", { url: manifestUrl });
-    await this.analytics?.emit("cdn.warmup", { manifestUrl, issuedAt: new Date().toISOString() });
+    await this.analytics?.emit("cdn.warmup", {
+      manifestUrl,
+      issuedAt: new Date().toISOString(),
+    });
   }
 
-  async promoteFailover(manifestPath: string, ingestRegion?: string): Promise<void> {
+  async promoteFailover(
+    manifestPath: string,
+    ingestRegion?: string
+  ): Promise<void> {
     if (!this.baseUrl) {
       this.logger.warn("CDN control endpoint missing; cannot promote failover");
       return;
@@ -69,11 +78,17 @@ export class CdnControlClient {
     if (!this.baseUrl) {
       return undefined;
     }
-    const status = await this.post<TrafficDirectorStatus>("/traffic-director/validate", {});
+    const status = await this.post<TrafficDirectorStatus>(
+      "/traffic-director/validate",
+      {}
+    );
     return status;
   }
 
-  private async post<T = unknown>(path: string, body: unknown): Promise<T | undefined> {
+  private async post<T = unknown>(
+    path: string,
+    body: unknown
+  ): Promise<T | undefined> {
     if (!this.baseUrl) {
       return undefined;
     }
@@ -101,9 +116,9 @@ export class CdnControlClient {
         );
         throw new Error(`CDN control request failed (${response.status})`);
       }
-      const parsed = (await response
-        .json()
-        .catch(() => undefined)) as T | undefined;
+      const parsed = (await response.json().catch(() => undefined)) as
+        | T
+        | undefined;
       return parsed;
     } finally {
       clearTimeout(timeout);

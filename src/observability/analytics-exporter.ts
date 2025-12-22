@@ -48,7 +48,9 @@ export class AnalyticsExporter {
       });
       if (!response.ok) {
         const text = await response.text();
-        throw new Error(`Analytics export failed (${response.status}): ${text}`);
+        throw new Error(
+          `Analytics export failed (${response.status}): ${text}`
+        );
       }
     } catch (error) {
       this.logger.warn({ err: error }, "Failed to export analytics event");

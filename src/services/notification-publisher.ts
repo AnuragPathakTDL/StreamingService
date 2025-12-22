@@ -100,14 +100,11 @@ export class NotificationPublisher {
   }
 
   private async postJson(url: string, body: unknown) {
-    await withExponentialBackoff(
-      () => this.performPost(url, body),
-      {
-        retries: 3,
-        onRetry: (error, attempt) =>
-          this.logger.warn({ url, err: error, attempt }, "Notification retry"),
-      }
-    );
+    await withExponentialBackoff(() => this.performPost(url, body), {
+      retries: 3,
+      onRetry: (error, attempt) =>
+        this.logger.warn({ url, err: error, attempt }, "Notification retry"),
+    });
   }
 
   private async performPost(url: string, body: unknown) {

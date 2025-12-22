@@ -108,7 +108,13 @@ export function getServiceDependencies(): ServiceDependencies {
   });
 
   const metrics = new MetricsRegistry();
-  const monitoring = new MonitoringService(omeClient, metrics, cdnClient, analytics, logger);
+  const monitoring = new MonitoringService(
+    omeClient,
+    metrics,
+    cdnClient,
+    analytics,
+    logger
+  );
 
   cached = {
     config,
