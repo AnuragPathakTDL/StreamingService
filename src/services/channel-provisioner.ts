@@ -81,9 +81,7 @@ export class ChannelProvisioner {
     const protocol =
       event.data.omeHints?.protocol ??
       (event.data.contentType === "REEL" ? "ll-hls" : "hls");
-    const existing = await this.repository.findByContentId(
-      event.data.videoId
-    );
+    const existing = await this.repository.findByContentId(event.data.videoId);
     const incomingChecksum = event.data.processedAsset.checksum;
 
     if (
@@ -102,7 +100,8 @@ export class ChannelProvisioner {
     const cacheKey = this.buildCacheKey(event.data.videoId, incomingChecksum);
     const abrLadder = this.selectPreset(classification);
     const sourceUri = this.buildSourceUri(event);
-    const outputBucket = event.data.processedAsset.bucket || this.manifestBucket;
+    const outputBucket =
+      event.data.processedAsset.bucket || this.manifestBucket;
 
     const request: ChannelProvisioningRequest = {
       contentId: event.data.videoId,

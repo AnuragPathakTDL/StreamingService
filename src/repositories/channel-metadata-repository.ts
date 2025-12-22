@@ -258,8 +258,7 @@ class PostgresChannelMetadataRepository implements ChannelMetadataRepository {
       channelId: row.channel_id,
       classification: row.classification,
       tenantId: row.tenant_id ?? undefined,
-      readyAt:
-        row.ready_at?.toISOString?.() ?? row.ready_at ?? undefined,
+      readyAt: row.ready_at?.toISOString?.() ?? row.ready_at ?? undefined,
       manifestPath: row.manifest_path,
       playbackUrl: row.playback_url,
       originEndpoint: row.origin_endpoint,
