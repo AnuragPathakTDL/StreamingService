@@ -4,7 +4,6 @@ import type { FastifyInstance } from "fastify";
 import {
   playbackParamsSchema,
   playbackQuerySchema,
-  playbackResponseSchema,
   type PlaybackResponse,
 } from "../schemas/streaming";
 import { loadConfig } from "../config";
@@ -38,9 +37,6 @@ export default fp(async function internalRoutes(fastify: FastifyInstance) {
     schema: {
       params: playbackParamsSchema,
       querystring: playbackQuerySchema,
-      response: {
-        200: playbackResponseSchema,
-      },
     },
     handler: async (request) => {
       const params = playbackParamsSchema.parse(request.params);

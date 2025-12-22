@@ -10,6 +10,10 @@ import cors from "@fastify/cors";
 import { loadConfig } from "./config";
 import serviceAuthPlugin from "./plugins/service-auth";
 import internalRoutes from "./routes/internal";
+import manifestRoutes from "./routes/manifest";
+import adminRoutes from "./routes/admin";
+import metricsRoutes from "./routes/metrics";
+import probeRoutes from "./routes/probes";
 
 export async function buildApp() {
   const config = loadConfig();
@@ -40,6 +44,10 @@ export async function buildApp() {
   await app.register(helmet, { contentSecurityPolicy: false });
   await app.register(serviceAuthPlugin);
   await app.register(internalRoutes, { prefix: "/internal" });
+  await app.register(manifestRoutes, { prefix: "/v1/streams" });
+  await app.register(adminRoutes, { prefix: "/v1/admin/streams" });
+  await app.register(metricsRoutes);
+  await app.register(probeRoutes, { prefix: "/internal/probes" });
 
   app.get("/health", async () => ({ status: "ok" }));
 
